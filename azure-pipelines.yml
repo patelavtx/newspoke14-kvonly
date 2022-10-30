@@ -1,0 +1,40 @@
+trigger: none
+stages:
+  - stage: deploy
+    jobs:
+      - deployment: deploy_terraform
+        continueOnError: false
+        environment: 'spoke14-destroy'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: TerraformInstaller@0
+                  displayName: 'install'
+                  inputs:
+                    terraformVersion: '1.2.0'
+                - task: TerraformTaskV3@3
+                  displayName: 'init'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'init'
+                    backendServiceArm: 'atulavtx-sst2'
+                    backendAzureRmResourceGroupName: 'atulrg-opstesting'
+                    backendAzureRmStorageAccountName: 'atulstorspk14'
+                    backendAzureRmContainerName: 'ctrspk14'
+                    backendAzureRmKey: 'spk14.tfstate'
+                - task: DownloadSecureFile@1
+                  name: mySecureFile # The name with which to reference the secure file's path on the agent, like $(mySecureFile.secureFilePath)
+                  inputs:
+                    secureFile: spoke14.tfvars
+                    #retryCount: 5 # Optional    
+                - task: TerraformTaskV2@2
+                  displayName: 'destroy'
+                  inputs:
+                    provider: 'azurerm'
+                    command: 'apply'
+                    commandOptions: '-destroy -var "ctrl-password=$(ctrl-password)" -var "controller-ip=$(controller-ip)" -var-file "$(mySecureFile.secureFilePath)"'
+                    #commandOptions: '-var "ctrl_password=$(TF_VAR_ctrlpassword)" -var "controller-ip=$(TF_VAR_controller_ip)"'
+                    #commandOptions: '-var "ctrl_password=$(ctrl_password)" -var "controller-ip=$(controller_ip)" -var-file "$(mySecureFile.secureFilePath)"'
+                    environmentServiceNameAzureRM: 'atulavtx-sst2'

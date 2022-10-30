@@ -1,0 +1,86 @@
+stages:
+- stage: validate
+  jobs:
+  - job: validate
+    continueOnError: false
+    steps:
+    - task: TerraformInstaller@0
+      displayName: 'install'
+      inputs:
+        terraformVersion: '1.2.0'
+      #Azure KEY Vault
+    - task: AzureKeyVault@1
+      inputs:
+        ConnectedServiceName: $(service_name)
+        KeyVaultName: $(key_vault_name)
+        SecretsFilter: '*'
+        RunAsPreJob: false     
+    - task: TerraformTaskV3@3
+      displayName: init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendServiceArm: 'atulavtx-sst2'
+        backendAzureRmResourceGroupName: 'atulrg-opstesting'
+        backendAzureRmStorageAccountName: 'atulstorspk14'
+        backendAzureRmContainerName: 'ctrspk14-kv'
+        backendAzureRmKey: 'spk14.tfstate'
+    - task: TerraformTaskV3@3
+      displayName: 'validate'
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+- stage: plan
+  jobs:
+    - deployment: validate_and_plan
+      continueOnError: false
+      environment: 'spoke14-kv'
+      strategy:
+       runOnce:
+         deploy:
+          steps:
+            - checkout: self
+            - task: TerraformInstaller@0
+              displayName: 'install'
+              inputs:
+                terraformVersion: '1.2.0'
+            - task: TerraformTaskV3@3
+              displayName: 'init'
+              inputs:
+                provider: 'azurerm'
+                command: 'init'
+                backendServiceArm: 'atulavtx-sst2'
+                backendAzureRmResourceGroupName: 'atulrg-opstesting'
+                backendAzureRmStorageAccountName: 'atulstorspk14'
+                backendAzureRmContainerName: 'ctrspk14-kv'
+                backendAzureRmKey: 'spk14.tfstate'
+            - task: TerraformTaskV3@3
+              displayName: 'plan'
+              env:
+                TF_VAR_name: $(name)
+                TF_VAR_cidr: $(cidr)
+                TF_VAR_region: $(region)
+                TF_VAR_account: $(account)
+                TF_VAR_transit_gw: $(transit_gw)
+                TF_VAR_attached: $(attached)
+                TF_VAR_nat_attached: $(nat-attached)
+                TF_VAR_ha_gw: $(ha-gw)
+                TF_VAR_spoke_cidrs: $(spoke-cidrs)
+                TF_VAR_gw1_snat: $(gw1-snat)
+                TF_VAR_gw2_snat: $(gw2-snat)
+                TF_VAR_dnatip: $(dnatip)
+                TF_VAR_dnatip2: $(dnatip2)
+                TF_VAR_dstcidr: $(dstcidr)
+                TF_VAR_dstcidr2: $(dstcidr2)
+                #TF_VAR_ctrl_password: $(ctrl-password)
+                #TF_VAR_controller_ip: $(controller-ip)
+                #TF_VAR_az_client_id: $(az-client-id)
+                #TF_VAR_az_client_secret: $(az-client-secret)
+                #TF_VAR_tags: $(tags)
+              inputs:
+                provider: 'azurerm'
+                command: 'plan'
+                #commandOptions: '-input=false -var "ctrl_password=$(TF_VAR_ctrl_password)" -var "controller_ip=$(TF_VAR_controller_ip)"'
+                commandOptions: '-var "ctrl-password=$(ctrl-password)" -var "controller-ip=$(controller-ip)"'
+
+                environmentServiceNameAzureRM: 'atulavtx-sst2'
