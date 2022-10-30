@@ -44,6 +44,13 @@ stages:
               displayName: 'install'
               inputs:
                 terraformVersion: '1.2.0'
+             #Azure KEY Vault
+            - task: AzureKeyVault@1
+              inputs:
+                ConnectedServiceName: $(service_name)
+                KeyVaultName: $(key_vault_name)
+                SecretsFilter: '*'
+                RunAsPreJob: false     '
             - task: TerraformTaskV3@3
               displayName: 'init'
               inputs:
